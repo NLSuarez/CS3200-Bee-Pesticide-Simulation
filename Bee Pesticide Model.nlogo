@@ -4,7 +4,7 @@ breed [ sheep a-sheep ]  ; sheep is its own plural, so we use "a-sheep" as the s
 breed [ wolves wolf ]
 breed [ bees bee ]
 turtles-own [ energy toxicity ]       ; Humans and bees own energy and toxicity
-patches-own [ countdown ]
+patches-own [ countdown pollinated ]
 
 to setup
   clear-all
@@ -13,14 +13,12 @@ to setup
   ; check GRASS? switch.
   ; if it is true, then grass grows and the sheep eat it
   ; if it false, then the sheep don't need to eat
-  if grass? [
-    ask patches [
-      set pcolor one-of [ green brown ]
-      if-else pcolor = green
-        [ set countdown grass-regrowth-time ]
-        [ set countdown random grass-regrowth-time ] ; initialize grass grow clocks randomly for brown patches
-    ]
-  ]
+  ask patches [
+     set pcolor one-of [ green brown ]
+     if-else pcolor = green
+       [ set countdown grass-regrowth-time ]
+       [ set countdown random grass-regrowth-time ] ; initialize grass grow clocks randomly for brown patches
+   ]
   set-default-shape sheep "person"
   create-sheep initial-number-sheep  ; create the sheep, then initialize their variables
   [
@@ -48,10 +46,8 @@ to go
   if not any? wolves and count sheep > max-sheep [ user-message "The sheep have inherited the earth" stop ]
   ask sheep [
     move
-    if grass? [
-      set energy energy - 1  ; deduct energy for sheep only if grass? switch is on
-      eat-grass
-    ]
+    set energy energy - 1  ; deduct energy for sheep only if grass? switch is on
+    eat-grass
     death
     reproduce-sheep
   ]
@@ -62,7 +58,7 @@ to go
     death
     reproduce-wolves
   ]
-  if grass? [ ask patches [ grow-grass ] ]
+  ask patches [ grow-grass ]
   set grass count patches with [pcolor = green]
   tick
   display-labels
@@ -122,7 +118,7 @@ to display-labels
   ask turtles [ set label "" ]
   if show-energy? [
     ask wolves [ set label round energy ]
-    if grass? [ ask sheep [ set label round energy ] ]
+    ask sheep [ set label round energy ]
   ]
 end
 
@@ -247,27 +243,16 @@ wolf-reproduce
 %
 HORIZONTAL
 
-SWITCH
-5
-87
-99
-120
-grass?
-grass?
-0
-1
--1000
-
 SLIDER
-106
+6
 88
-318
+218
 121
 grass-regrowth-time
 grass-regrowth-time
 0
 100
-30.0
+29.0
 1
 1
 NIL
@@ -325,7 +310,7 @@ true
 PENS
 "sheep" 1.0 0 -13345367 true "" "plot count sheep"
 "wolves" 1.0 0 -2674135 true "" "plot count wolves"
-"grass / 4" 1.0 0 -10899396 true "" "if grass? [ plot grass / 4 ]"
+"grass / 4" 1.0 0 -10899396 true "" "plot grass / 4"
 
 MONITOR
 50
