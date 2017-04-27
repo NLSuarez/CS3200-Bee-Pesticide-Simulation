@@ -2,7 +2,8 @@ globals [ grass max-sheep ]  ; keep track of how much grass there is
 ; Sheep and wolves are both breeds of turtle.
 breed [ sheep a-sheep ]  ; sheep is its own plural, so we use "a-sheep" as the singular.
 breed [ wolves wolf ]
-turtles-own [ energy ]       ; both wolves and sheep have energy
+breed [ bees bee ]
+turtles-own [ energy toxicity ]       ; Humans and bees own energy and toxicity
 patches-own [ countdown ]
 
 to setup
@@ -20,7 +21,7 @@ to setup
         [ set countdown random grass-regrowth-time ] ; initialize grass grow clocks randomly for brown patches
     ]
   ]
-  set-default-shape sheep "sheep"
+  set-default-shape sheep "person"
   create-sheep initial-number-sheep  ; create the sheep, then initialize their variables
   [
     set color white
@@ -29,7 +30,7 @@ to setup
     set energy random (2 * sheep-gain-from-food)
     setxy random-xcor random-ycor
   ]
-  set-default-shape wolves "wolf"
+  set-default-shape wolves "person"
   create-wolves initial-number-wolves  ; create the wolves, then initialize their variables
   [
     set color black
@@ -253,7 +254,7 @@ SWITCH
 120
 grass?
 grass?
-1
+0
 1
 -1000
 
@@ -816,7 +817,7 @@ false
 Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 @#$#@#$#@
-NetLogo 6.0
+NetLogo 6.0.1
 @#$#@#$#@
 set grass? true
 setup
