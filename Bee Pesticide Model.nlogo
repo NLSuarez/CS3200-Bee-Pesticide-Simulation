@@ -1,6 +1,6 @@
-globals [ grass max-sheep ]  ; keep track of how much grass there is
-; Sheep and wolves are both breeds of turtle.
-breed [ sheep a-sheep ]  ; sheep is its own plural, so we use "a-sheep" as the singular.
+globals [ crops max-humans ]  ; keep track of how much crops there is
+; Humans and wolves are both breeds of turtle.
+breed [ humans human ]
 breed [ wolves wolf ]
 breed [ bees bee ]
 turtles-own [ energy toxicity ]       ; Humans and bees own energy and toxicity
@@ -8,58 +8,55 @@ patches-own [ countdown pollinated ]
 
 to setup
   clear-all
-  set max-sheep 100000
+  set max-humans 100000
   ask patches [ set pcolor green ]
-  ; check GRASS? switch.
-  ; if it is true, then grass grows and the sheep eat it
-  ; if it false, then the sheep don't need to eat
   ask patches [
      set pcolor one-of [ green brown ]
      if-else pcolor = green
-       [ set countdown grass-regrowth-time ]
-       [ set countdown random grass-regrowth-time ] ; initialize grass grow clocks randomly for brown patches
+       [ set countdown crops-regrowth-time ]
+       [ set countdown random crops-regrowth-time ] ; initialize crops grow clocks randomly for brown patches
    ]
-  set-default-shape sheep "person"
-  create-sheep initial-number-sheep  ; create the sheep, then initialize their variables
+  set-default-shape humans "person"
+  create-humans initial-number-humans  ; create the humans, then initialize their variables
   [
     set color white
     set size 1.5  ; easier to see
     set label-color blue - 2
-    set energy random (2 * sheep-gain-from-food)
+    set energy random (2 * humans-gain-from-food)
     setxy random-xcor random-ycor
   ]
-  set-default-shape wolves "person"
+  set-default-shape wolves "bug"
   create-wolves initial-number-wolves  ; create the wolves, then initialize their variables
   [
-    set color black
+    set color yellow
     set size 2  ; easier to see
     set energy random (2 * wolf-gain-from-food)
     setxy random-xcor random-ycor
   ]
   display-labels
-  set grass count patches with [pcolor = green]
+  set crops count patches with [pcolor = green]
   reset-ticks
 end
 
 to go
   if not any? turtles [ stop ]
-  if not any? wolves and count sheep > max-sheep [ user-message "The sheep have inherited the earth" stop ]
-  ask sheep [
+  if not any? wolves and count humans > max-humans [ user-message "The humans have inherited the earth" stop ]
+  ask humans [
     move
-    set energy energy - 1  ; deduct energy for sheep only if grass? switch is on
-    eat-grass
+    set energy energy - 1  ; deduct energy for humans only if crops? switch is on
+    eat-crops
     death
-    reproduce-sheep
+    reproduce-humans
   ]
   ask wolves [
     move
     set energy energy - 1  ; wolves lose energy as they move
-    catch-sheep
+    catch-humans
     death
     reproduce-wolves
   ]
-  ask patches [ grow-grass ]
-  set grass count patches with [pcolor = green]
+  ask patches [ grow-crops ]
+  set crops count patches with [pcolor = green]
   tick
   display-labels
 end
@@ -70,16 +67,16 @@ to move  ; turtle procedure
   fd 1
 end
 
-to eat-grass  ; sheep procedure
-  ; sheep eat grass, turn the patch brown
+to eat-crops  ; humans procedure
+  ; humans eat crops, turn the patch brown
   if pcolor = green [
     set pcolor brown
-    set energy energy + sheep-gain-from-food  ; sheep gain energy by eating
+    set energy energy + humans-gain-from-food  ; humans gain energy by eating
   ]
 end
 
-to reproduce-sheep  ; sheep procedure
-  if random-float 100 < sheep-reproduce [  ; throw "dice" to see if you will reproduce
+to reproduce-humans  ; humans procedure
+  if random-float 100 < humans-reproduce [  ; throw "dice" to see if you will reproduce
     set energy (energy / 2)                ; divide energy between parent and offspring
     hatch 1 [ rt random-float 360 fd 1 ]   ; hatch an offspring and move it forward 1 step
   ]
@@ -92,8 +89,8 @@ to reproduce-wolves  ; wolf procedure
   ]
 end
 
-to catch-sheep  ; wolf procedure
-  let prey one-of sheep-here                    ; grab a random sheep
+to catch-humans  ; wolf procedure
+  let prey one-of humans-here                    ; grab a random humans
   if prey != nobody                             ; did we get one?  if so,
     [ ask prey [ die ]                          ; kill it
       set energy energy + wolf-gain-from-food ] ; get energy from eating
@@ -104,12 +101,12 @@ to death  ; turtle procedure
   if energy < 0 [ die ]
 end
 
-to grow-grass  ; patch procedure
-  ; countdown on brown patches: if reach 0, grow some grass
+to grow-crops  ; patch procedure
+  ; countdown on brown patches: if reach 0, grow some crops
   if pcolor = brown [
     ifelse countdown <= 0
       [ set pcolor green
-        set countdown grass-regrowth-time ]
+        set countdown crops-regrowth-time ]
       [ set countdown countdown - 1 ]
   ]
 end
@@ -118,7 +115,7 @@ to display-labels
   ask turtles [ set label "" ]
   if show-energy? [
     ask wolves [ set label round energy ]
-    ask sheep [ set label round energy ]
+    ask humans [ set label round energy ]
   ]
 end
 
@@ -158,8 +155,8 @@ SLIDER
 150
 177
 183
-initial-number-sheep
-initial-number-sheep
+initial-number-humans
+initial-number-humans
 0
 250
 100.0
@@ -173,8 +170,8 @@ SLIDER
 187
 177
 220
-sheep-gain-from-food
-sheep-gain-from-food
+humans-gain-from-food
+humans-gain-from-food
 0.0
 50.0
 4.0
@@ -188,8 +185,8 @@ SLIDER
 222
 177
 255
-sheep-reproduce
-sheep-reproduce
+humans-reproduce
+humans-reproduce
 1.0
 20.0
 4.0
@@ -248,11 +245,11 @@ SLIDER
 88
 218
 121
-grass-regrowth-time
-grass-regrowth-time
+crops-regrowth-time
+crops-regrowth-time
 0
 100
-29.0
+27.0
 1
 1
 NIL
@@ -308,17 +305,17 @@ true
 true
 "" ""
 PENS
-"sheep" 1.0 0 -13345367 true "" "plot count sheep"
+"humans" 1.0 0 -13345367 true "" "plot count humans"
 "wolves" 1.0 0 -2674135 true "" "plot count wolves"
-"grass / 4" 1.0 0 -10899396 true "" "plot grass / 4"
+"crops / 4" 1.0 0 -10899396 true "" "plot crops / 4"
 
 MONITOR
 50
 265
 121
 310
-sheep
-count sheep
+humans
+count humans
 3
 1
 11
@@ -340,7 +337,7 @@ MONITOR
 287
 310
 NIL
-grass / 4
+crops / 4
 0
 1
 11
@@ -370,7 +367,7 @@ TEXTBOX
 68
 161
 86
-Grass settings
+Crop settings
 11
 0.0
 0
