@@ -1,61 +1,72 @@
-globals [ crops max-humans ]  ; keep track of how much crops there is
-; Humans and wolves are both breeds of turtle.
+globals [ crops bee-message-printed spray-countdown ]  ; keep track of how much crops there is
+; Humans and bees are both breeds of turtle.
 breed [ humans human ]
-breed [ wolves wolf ]
 breed [ bees bee ]
 turtles-own [ energy toxicity ]       ; Humans and bees own energy and toxicity
-patches-own [ countdown pollinated ]
+patches-own [ countdown patch-toxicity]
 
 to setup
   clear-all
-  set max-humans 100000
+  set bee-message-printed 0
   ask patches [ set pcolor green ]
   ask patches [
-     set pcolor one-of [ green brown ]
-     if-else pcolor = green
-       [ set countdown crops-regrowth-time ]
+     set pcolor one-of [ green brown yellow]
+     set patch-toxicity random pesticide-toxicity
+     if pcolor = yellow
        [ set countdown random crops-regrowth-time ] ; initialize crops grow clocks randomly for brown patches
    ]
   set-default-shape humans "person"
   create-humans initial-number-humans  ; create the humans, then initialize their variables
   [
-    set color white
-    set size 1.5  ; easier to see
+    set color blue
+    set size 2  ; easier to see
     set label-color blue - 2
-    set energy random (2 * humans-gain-from-food)
     setxy random-xcor random-ycor
   ]
-  set-default-shape wolves "bug"
-  create-wolves initial-number-wolves  ; create the wolves, then initialize their variables
+  set-default-shape bees "bug"
+  create-bees initial-number-bees  ; create the bees, then initialize their variables
   [
-    set color yellow
-    set size 2  ; easier to see
-    set energy random (2 * wolf-gain-from-food)
+    set color black
+    set size 1  ; easier to see
+    set energy random (2 * bee-gain-from-food)
     setxy random-xcor random-ycor
   ]
   display-labels
   set crops count patches with [pcolor = green]
+  set spray-countdown crops-spray-time
   reset-ticks
 end
 
 to go
-  if not any? turtles [ stop ]
-  if not any? wolves and count humans > max-humans [ user-message "The humans have inherited the earth" stop ]
+  if not any? turtles [ user-message "Humanity has become extinct." stop ]
+  if not any? bees [
+    ifelse bee-message-printed = 1
+    [  ]
+    [
+      user-message "The bees are gone. There is no more food."
+      set bee-message-printed 1
+    ]
+  ]
   ask humans [
     move
-    set energy energy - 1  ; deduct energy for humans only if crops? switch is on
+    set energy energy - 1
     eat-crops
     death
     reproduce-humans
   ]
-  ask wolves [
+  ask bees [
     move
-    set energy energy - 1  ; wolves lose energy as they move
-    catch-humans
+    set energy energy - 1  ; bees lose energy as they move
+    toxic
+    pollinate-crops
     death
-    reproduce-wolves
+    reproduce-bees
   ]
-  ask patches [ grow-crops ]
+  ask patches [
+    set patch-toxicity patch-toxicity - random patch-toxicity ; take off a random amount of toxicity
+    grow-crops
+    spray
+  ]
   set crops count patches with [pcolor = green]
   tick
   display-labels
@@ -67,43 +78,74 @@ to move  ; turtle procedure
   fd 1
 end
 
+to toxic ; bee procedure
+  ; this procedure simulates a chance at random death from pesticide exposure
+  ; if
+  if toxicity > 0
+  [
+    ifelse toxicity < fatal-bee-toxic-threshold / 2 ;
+    [
+      ifelse random 10 <= 3
+      [ die ] ; under 50% of fatal threshold, 30% chance to die at random
+      [ set toxicity toxicity - 1 ] ; if you don't die, take 1 toxicity off
+    ]
+    [
+      ifelse random 10 <= 7
+      [ die ] ; over 50% of fatal threshold, 70% chance to die at random
+      [ set toxicity toxicity - 1 ] ; if you don't die, take a 1 toxicity off
+    ]
+  ]
+end
+
+to pollinate-crops ; bee procedure
+  if pcolor = brown [
+    set pcolor yellow
+    set energy energy + bee-gain-from-food ; bees gain energy by pollinating
+    set toxicity random patch-toxicity ; bees are unlikely to get the full dose of pesticide on them just from pollinating
+  ]
+end
+
+to collect-crops ; humans procedure
+  ; humans collect crops, turn the patch brown
+  ; this is the nonapocalyptic version where we assume that humans have infinite energy
+  if pcolor = green [
+    set pcolor brown
+  ]
+end
+
 to eat-crops  ; humans procedure
   ; humans eat crops, turn the patch brown
+  ; this is the apocalyptic version where we assume that humans are running out of energy
   if pcolor = green [
     set pcolor brown
     set energy energy + humans-gain-from-food  ; humans gain energy by eating
   ]
 end
 
-to reproduce-humans  ; humans procedure
-  if random-float 100 < humans-reproduce [  ; throw "dice" to see if you will reproduce
-    set energy (energy / 2)                ; divide energy between parent and offspring
-    hatch 1 [ rt random-float 360 fd 1 ]   ; hatch an offspring and move it forward 1 step
-  ]
-end
-
-to reproduce-wolves  ; wolf procedure
-  if random-float 100 < wolf-reproduce [  ; throw "dice" to see if you will reproduce
+to reproduce-bees  ; bee procedure
+  if random-float 100 < bee-reproduce [  ; throw "dice" to see if you will reproduce
     set energy (energy / 2)               ; divide energy between parent and offspring
     hatch 1 [ rt random-float 360 fd 1 ]  ; hatch an offspring and move it forward 1 step
   ]
 end
 
-to catch-humans  ; wolf procedure
-  let prey one-of humans-here                    ; grab a random humans
-  if prey != nobody                             ; did we get one?  if so,
-    [ ask prey [ die ]                          ; kill it
-      set energy energy + wolf-gain-from-food ] ; get energy from eating
+to reproduce-humans  ; human procedure
+  if random-float 100 < human-reproduce [  ; throw "dice" to see if you will reproduce
+    set energy (energy / 2)               ; divide energy between parent and offspring
+    hatch 1 [ rt random-float 360 fd 1 ]  ; hatch an offspring and move it forward 1 step
+  ]
 end
 
 to death  ; turtle procedure
   ; when energy dips below zero, die
   if energy < 0 [ die ]
+  ; if you're affected by toxicity greater than your fatal threshold, die
+  if toxicity > fatal-bee-toxic-threshold [ die ]
 end
 
 to grow-crops  ; patch procedure
-  ; countdown on brown patches: if reach 0, grow some crops
-  if pcolor = brown [
+  ; countdown on yellow patches: if reach 0, grow some crops
+  if pcolor = yellow [
     ifelse countdown <= 0
       [ set pcolor green
         set countdown crops-regrowth-time ]
@@ -111,10 +153,22 @@ to grow-crops  ; patch procedure
   ]
 end
 
+to spray ; patch procedure
+  ; countdown on all patches: if reach 0, spray all patches
+  ifelse spray-countdown <= 0
+  [
+     set patch-toxicity random pesticide-toxicity
+     set spray-countdown crops-spray-time
+  ]
+  [
+     set spray-countdown spray-countdown - 1
+  ]
+end
+
 to display-labels
   ask turtles [ set label "" ]
   if show-energy? [
-    ask wolves [ set label round energy ]
+    ask bees [ set label round energy ]
     ask humans [ set label round energy ]
   ]
 end
@@ -124,10 +178,10 @@ end
 ; See Info tab for full copyright and license.
 @#$#@#$#@
 GRAPHICS-WINDOW
-350
-10
-817
-478
+446
+22
+913
+490
 -1
 -1
 9.0
@@ -152,9 +206,9 @@ ticks
 
 SLIDER
 3
-150
+93
 177
-183
+126
 initial-number-humans
 initial-number-humans
 0
@@ -167,9 +221,9 @@ HORIZONTAL
 
 SLIDER
 3
-187
+130
 177
-220
+163
 humans-gain-from-food
 humans-gain-from-food
 0.0
@@ -181,78 +235,63 @@ NIL
 HORIZONTAL
 
 SLIDER
-3
-222
-177
-255
-humans-reproduce
-humans-reproduce
-1.0
-20.0
-4.0
-1.0
-1
-%
-HORIZONTAL
-
-SLIDER
-181
-150
-346
-183
-initial-number-wolves
-initial-number-wolves
+238
+92
+403
+125
+initial-number-bees
+initial-number-bees
 0
 250
-50.0
+250.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-181
-186
-346
-219
-wolf-gain-from-food
-wolf-gain-from-food
+238
+128
+403
+161
+bee-gain-from-food
+bee-gain-from-food
 0.0
 100.0
-20.0
+16.0
 1.0
 1
 NIL
 HORIZONTAL
 
 SLIDER
-181
-222
-346
-255
-wolf-reproduce
-wolf-reproduce
+238
+164
+403
+197
+bee-reproduce
+bee-reproduce
 0.0
 20.0
-5.0
+20.0
 1.0
 1
 %
 HORIZONTAL
 
 SLIDER
-6
-88
-218
-121
+928
+38
+1140
+71
 crops-regrowth-time
 crops-regrowth-time
 0
 100
-27.0
+24.0
 1
 1
-NIL
+days
 HORIZONTAL
 
 BUTTON
@@ -290,10 +329,10 @@ NIL
 0
 
 PLOT
-12
-312
-328
-509
+26
+304
+342
+501
 populations
 time
 pop.
@@ -306,14 +345,14 @@ true
 "" ""
 PENS
 "humans" 1.0 0 -13345367 true "" "plot count humans"
-"wolves" 1.0 0 -2674135 true "" "plot count wolves"
+"bees" 1.0 0 -2674135 true "" "plot count bees"
 "crops / 4" 1.0 0 -10899396 true "" "plot crops / 4"
 
 MONITOR
-50
-265
-121
-310
+61
+249
+132
+294
 humans
 count humans
 3
@@ -321,21 +360,21 @@ count humans
 11
 
 MONITOR
-125
-265
-207
-310
-wolves
-count wolves
+136
+249
+218
+294
+bees
+count bees
 3
 1
 11
 
 MONITOR
-211
-265
-287
-310
+222
+249
+298
+294
 NIL
 crops / 4
 0
@@ -344,29 +383,29 @@ crops / 4
 
 TEXTBOX
 8
-130
+71
 148
-149
-Sheep settings
+90
+Human settings
 11
 0.0
 0
 
 TEXTBOX
-186
-130
-299
-148
-Wolf settings
+243
+72
+356
+90
+Bee settings
 11
 0.0
 0
 
 TEXTBOX
-9
-68
-161
-86
+934
+15
+1086
+33
 Crop settings
 11
 0.0
@@ -379,120 +418,82 @@ SWITCH
 61
 show-energy?
 show-energy?
-1
+0
 1
 -1000
+
+SLIDER
+1146
+38
+1318
+71
+crops-spray-time
+crops-spray-time
+1
+20
+7.0
+1
+1
+days
+HORIZONTAL
+
+SLIDER
+929
+78
+1104
+111
+pesticide-toxicity
+pesticide-toxicity
+25
+100
+100.0
+1
+1
+parts
+HORIZONTAL
+
+SLIDER
+238
+203
+442
+236
+fatal-bee-toxic-threshold
+fatal-bee-toxic-threshold
+1
+100
+1.0
+1
+1
+%
+HORIZONTAL
+
+SLIDER
+5
+167
+177
+200
+human-reproduce
+human-reproduce
+1
+20
+20.0
+1
+1
+%
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
 
-This model explores the stability of predator-prey ecosystems. Such a system is called unstable if it tends to result in extinction for one or more species involved.  In contrast, a system is stable if it tends to maintain itself over time, despite fluctuations in population sizes.
+This model explores the effects of pesticides on bees and how that affects an ecosystem.
 
 ## HOW IT WORKS
 
-There are two main variations to this model.
+Humans and bees are the two turtle species that are specified in the beginning of the model. There is a slider that specifies how often the crops are sprayed and the amount of toxicity in the plants. Toxicity translates to the bees during pollination - which is required in order for crops to grow - and there are thresholds of toxicity that increase the chance a bee will die. If the bee reaches a certain threshold(i.e. the fatal threshold), they will automatically die at the end of the current time step.
 
-In the first variation, wolves and sheep wander randomly around the landscape, while the wolves look for sheep to prey on. Each step costs the wolves energy, and they must eat sheep in order to replenish their energy - when they run out of energy they die. To allow the population to continue, each wolf or sheep has a fixed probability of reproducing at each time step. This variation produces interesting population dynamics, but is ultimately unstable.
-
-The second variation includes grass (green) in addition to wolves and sheep. The behavior of the wolves is identical to the first variation, however this time the sheep must eat grass in order to maintain their energy - when they run out of energy they die. Once grass is eaten it will only regrow after a fixed amount of time. This variation is more complex than the first, but it is generally stable.
-
-The construction of this model is described in two papers by Wilensky & Reisman referenced below.
+Human reproduction has been disabled for this model in order to avoid the issue of overpopulation. This is just about bees and the effects of pesticides. 
 
 ## HOW TO USE IT
-
-1. Set the GRASS? switch to TRUE to include grass in the model, or to FALSE to only include wolves (red) and sheep (white).
-2. Adjust the slider parameters (see below), or use the default settings.
-3. Press the SETUP button.
-4. Press the GO button to begin the simulation.
-5. Look at the monitors to see the current population sizes
-6. Look at the POPULATIONS plot to watch the populations fluctuate over time
-
-Parameters:
-INITIAL-NUMBER-SHEEP: The initial size of sheep population
-INITIAL-NUMBER-WOLVES: The initial size of wolf population
-SHEEP-GAIN-FROM-FOOD: The amount of energy sheep get for every grass patch eaten
-WOLF-GAIN-FROM-FOOD: The amount of energy wolves get for every sheep eaten
-SHEEP-REPRODUCE: The probability of a sheep reproducing at each time step
-WOLF-REPRODUCE: The probability of a wolf reproducing at each time step
-GRASS?: Whether or not to include grass in the model
-GRASS-REGROWTH-TIME: How long it takes for grass to regrow once it is eaten
-SHOW-ENERGY?: Whether or not to show the energy of each animal as a number
-
-Notes:
-- one unit of energy is deducted for every step a wolf takes
-- when grass is included, one unit of energy is deducted for every step a sheep takes
-
-## THINGS TO NOTICE
-
-When grass is not included, watch as the sheep and wolf populations fluctuate. Notice that increases and decreases in the sizes of each population are related. In what way are they related? What eventually happens?
-
-Once grass is added, notice the green line added to the population plot representing fluctuations in the amount of grass. How do the sizes of the three populations appear to relate now? What is the explanation for this?
-
-Why do you suppose that some variations of the model might be stable while others are not?
-
-## THINGS TO TRY
-
-Try adjusting the parameters under various settings. How sensitive is the stability of the model to the particular parameters?
-
-Can you find any parameters that generate a stable ecosystem that includes only wolves and sheep?
-
-Try setting GRASS? to TRUE, but setting INITIAL-NUMBER-WOLVES to 0. This gives a stable ecosystem with only sheep and grass. Why might this be stable while the variation with only sheep and wolves is not?
-
-Notice that under stable settings, the populations tend to fluctuate at a predictable pace. Can you find any parameters that will speed this up or slow it down?
-
-Try changing the reproduction rules -- for example, what would happen if reproduction depended on energy rather than being determined by a fixed probability?
-
-## EXTENDING THE MODEL
-
-There are a number ways to alter the model so that it will be stable with only wolves and sheep (no grass). Some will require new elements to be coded in or existing behaviors to be changed. Can you develop such a version?
-
-Can you modify the model so the sheep will flock?
-
-Can you modify the model so that wolf actively chase sheep?
-
-## NETLOGO FEATURES
-
-Note the use of breeds to model two different kinds of "turtles": wolves and sheep. Note the use of patches to model grass.
-
-Note use of the ONE-OF agentset reporter to select a random sheep to be eaten by a wolf.
-
-## RELATED MODELS
-
-Look at Rabbits Grass Weeds for another model of interacting populations with different rules.
-
-## CREDITS AND REFERENCES
-
-Wilensky, U. & Reisman, K. (1999). Connected Science: Learning Biology through Constructing and Testing Computational Theories -- an Embodied Modeling Approach. International Journal of Complex Systems, M. 234, pp. 1 - 12. (This model is a slightly extended version of the model described in the paper.)
-
-Wilensky, U. & Reisman, K. (2006). Thinking like a Wolf, a Sheep or a Firefly: Learning Biology through Constructing and Testing Computational Theories -- an Embodied Modeling Approach. Cognition & Instruction, 24(2), pp. 171-209. http://ccl.northwestern.edu/papers/wolfsheep.pdf
-
-## HOW TO CITE
-
-If you mention this model or the NetLogo software in a publication, we ask that you include the citations below.
-
-For the model itself:
-
-* Wilensky, U. (1997).  NetLogo Wolf Sheep Predation model.  http://ccl.northwestern.edu/netlogo/models/WolfSheepPredation.  Center for Connected Learning and Computer-Based Modeling, Northwestern University, Evanston, IL.
-
-Please cite the NetLogo software as:
-
-* Wilensky, U. (1999). NetLogo. http://ccl.northwestern.edu/netlogo/. Center for Connected Learning and Computer-Based Modeling, Northwestern University, Evanston, IL.
-
-## COPYRIGHT AND LICENSE
-
-Copyright 1997 Uri Wilensky.
-
-![CC BY-NC-SA 3.0](http://ccl.northwestern.edu/images/creativecommons/byncsa.png)
-
-This work is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 3.0 License.  To view a copy of this license, visit https://creativecommons.org/licenses/by-nc-sa/3.0/ or send a letter to Creative Commons, 559 Nathan Abbott Way, Stanford, California 94305, USA.
-
-Commercial licenses are also available. To inquire about commercial licenses, please contact Uri Wilensky at uri@northwestern.edu.
-
-This model was created as part of the project: CONNECTED MATHEMATICS: MAKING SENSE OF COMPLEX PHENOMENA THROUGH BUILDING OBJECT-BASED PARALLEL MODELS (OBPML).  The project gratefully acknowledges the support of the National Science Foundation (Applications of Advanced Technologies Program) -- grant numbers RED #9552950 and REC #9632612.
-
-This model was converted to NetLogo as part of the projects: PARTICIPATORY SIMULATIONS: NETWORK-BASED DESIGN FOR SYSTEMS LEARNING IN CLASSROOMS and/or INTEGRATED SIMULATION AND MODELING ENVIRONMENT. The project gratefully acknowledges the support of the National Science Foundation (REPP & ROLE programs) -- grant numbers REC #9814682 and REC-0126227. Converted from StarLogoT to NetLogo, 2000.
-
-<!-- 1997 2000 -->
 @#$#@#$#@
 default
 true
