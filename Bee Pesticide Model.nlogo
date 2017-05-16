@@ -2,7 +2,7 @@ globals [ crops bee-message-printed spray-countdown ]  ; keep track of how much 
 ; Humans and bees are both breeds of turtle.
 breed [ humans human ]
 breed [ bees bee ]
-turtles-own [ energy toxicity ]       ; Humans and bees own energy and toxicity
+turtles-own [ energy toxicity]       ; Humans and bees own energy and toxicity
 patches-own [ countdown patch-toxicity]
 
 to setup
@@ -11,15 +11,15 @@ to setup
   ask patches [ set pcolor green ]
   ask patches [
      set pcolor one-of [ green brown yellow]
-     set patch-toxicity random pesticide-toxicity
+     set patch-toxicity random-float pesticide-saturation
      if pcolor = yellow
-       [ set countdown random crops-regrowth-time ] ; initialize crops grow clocks randomly for brown patches
+       [ set countdown random-float crops-regrowth-time ] ; initialize crops grow clocks randomly for brown patches
    ]
   set-default-shape humans "person"
   create-humans initial-number-humans  ; create the humans, then initialize their variables
   [
     set color blue
-    set size 2  ; easier to see
+    set size 2.5  ; easier to see
     set label-color blue - 2
     setxy random-xcor random-ycor
   ]
@@ -27,8 +27,9 @@ to setup
   create-bees initial-number-bees  ; create the bees, then initialize their variables
   [
     set color black
-    set size 1  ; easier to see
+    set size .5  ; easier to see
     set energy random (2 * bee-gain-from-food)
+    set toxicity 0 ; no bee has toxicity in their system in the beginning
     setxy random-xcor random-ycor
   ]
   display-labels
@@ -57,13 +58,18 @@ to go
   ask bees [
     move
     set energy energy - 1  ; bees lose energy as they move
-    toxic
     pollinate-crops
     death
+    if toxicity > 0
+    [
+      set toxicity toxicity - 1
+    ]
     reproduce-bees
   ]
   ask patches [
-    set patch-toxicity patch-toxicity - random patch-toxicity ; take off a random amount of toxicity
+    set patch-toxicity patch-toxicity - random-float patch-toxicity ; take off a random amount of toxicity
+    ; Since there are so many factors like rain that can wash off pesticide and it's easier to take off random amounts
+    ; rather than doing a half-life, we just take off a random amount.
     grow-crops
     spray
   ]
@@ -78,38 +84,11 @@ to move  ; turtle procedure
   fd 1
 end
 
-to toxic ; bee procedure
-  ; this procedure simulates a chance at random death from pesticide exposure
-  ; if
-  if toxicity > 0
-  [
-    ifelse toxicity < fatal-bee-toxic-threshold / 2 ;
-    [
-      ifelse random 10 <= 3
-      [ die ] ; under 50% of fatal threshold, 30% chance to die at random
-      [ set toxicity toxicity - 1 ] ; if you don't die, take 1 toxicity off
-    ]
-    [
-      ifelse random 10 <= 7
-      [ die ] ; over 50% of fatal threshold, 70% chance to die at random
-      [ set toxicity toxicity - 1 ] ; if you don't die, take a 1 toxicity off
-    ]
-  ]
-end
-
 to pollinate-crops ; bee procedure
   if pcolor = brown [
     set pcolor yellow
     set energy energy + bee-gain-from-food ; bees gain energy by pollinating
-    set toxicity random patch-toxicity ; bees are unlikely to get the full dose of pesticide on them just from pollinating
-  ]
-end
-
-to collect-crops ; humans procedure
-  ; humans collect crops, turn the patch brown
-  ; this is the nonapocalyptic version where we assume that humans have infinite energy
-  if pcolor = green [
-    set pcolor brown
+    set toxicity (toxicity + random-float patch-toxicity) ; bees are unlikely to get the full dose of pesticide on them just from pollinating
   ]
 end
 
@@ -139,8 +118,12 @@ end
 to death  ; turtle procedure
   ; when energy dips below zero, die
   if energy < 0 [ die ]
-  ; if you're affected by toxicity greater than your fatal threshold, die
-  if toxicity > fatal-bee-toxic-threshold [ die ]
+  ; if you're affected by toxicity at all, roll the dice to see if you die
+  if toxicity > 0 [
+    if random-float 100 < bee-sensitivity [
+      die
+    ]
+  ]
 end
 
 to grow-crops  ; patch procedure
@@ -157,7 +140,7 @@ to spray ; patch procedure
   ; countdown on all patches: if reach 0, spray all patches
   ifelse spray-countdown <= 0
   [
-     set patch-toxicity random pesticide-toxicity
+     set patch-toxicity (patch-toxicity + random-float pesticide-saturation) ; add patch
      set spray-countdown crops-spray-time
   ]
   [
@@ -167,9 +150,9 @@ end
 
 to display-labels
   ask turtles [ set label "" ]
-  if show-energy? [
-    ask bees [ set label round energy ]
-    ask humans [ set label round energy ]
+  if show-toxicity? [
+    ask bees [ set label round toxicity ]
+    ;ask humans [ set label round toxicity ]
   ]
 end
 
@@ -222,7 +205,7 @@ HORIZONTAL
 SLIDER
 3
 130
-177
+206
 163
 humans-gain-from-food
 humans-gain-from-food
@@ -231,7 +214,7 @@ humans-gain-from-food
 4.0
 1.0
 1
-NIL
+units
 HORIZONTAL
 
 SLIDER
@@ -252,16 +235,16 @@ HORIZONTAL
 SLIDER
 238
 128
-403
+426
 161
 bee-gain-from-food
 bee-gain-from-food
 0.0
 100.0
-16.0
+20.0
 1.0
 1
-NIL
+units
 HORIZONTAL
 
 SLIDER
@@ -416,9 +399,9 @@ SWITCH
 28
 303
 61
-show-energy?
-show-energy?
-0
+show-toxicity?
+show-toxicity?
+1
 1
 -1000
 
@@ -440,16 +423,16 @@ HORIZONTAL
 SLIDER
 929
 78
-1104
+1121
 111
-pesticide-toxicity
-pesticide-toxicity
-25
+pesticide-saturation
+pesticide-saturation
+0
 100
 100.0
 1
 1
-parts
+units
 HORIZONTAL
 
 SLIDER
@@ -457,8 +440,8 @@ SLIDER
 203
 442
 236
-fatal-bee-toxic-threshold
-fatal-bee-toxic-threshold
+bee-sensitivity
+bee-sensitivity
 1
 100
 1.0
@@ -476,7 +459,7 @@ human-reproduce
 human-reproduce
 1
 20
-20.0
+4.0
 1
 1
 %
