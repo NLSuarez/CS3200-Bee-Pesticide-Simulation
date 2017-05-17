@@ -60,10 +60,6 @@ to go
     set energy energy - 1  ; bees lose energy as they move
     pollinate-crops
     death
-    if toxicity > 0
-    [
-      set toxicity toxicity - 1
-    ]
     reproduce-bees
   ]
   ask patches [
@@ -120,9 +116,10 @@ to death  ; turtle procedure
   if energy < 0 [ die ]
   ; if you're affected by toxicity at all, roll the dice to see if you die
   if toxicity > 0 [
-    if random-float 100 < bee-sensitivity [
+    ifelse random-float 100 < bee-sensitivity [
       die
     ]
+    [set toxicity toxicity - 1] ; if you don't, reduce your toxicity by 1
   ]
 end
 
@@ -429,7 +426,7 @@ pesticide-saturation
 pesticide-saturation
 0
 100
-100.0
+50.0
 1
 1
 units
@@ -444,7 +441,7 @@ bee-sensitivity
 bee-sensitivity
 1
 100
-1.0
+100.0
 1
 1
 %
@@ -466,17 +463,69 @@ human-reproduce
 HORIZONTAL
 
 @#$#@#$#@
-## WHAT IS IT?
+##WHAT IS IT?
 
-This model explores the effects of pesticides on bees and how that affects an ecosystem.
+This model explores the effects of pesticides on bees and how that plays a role in an ecosystem dependent on them.
 
-## HOW IT WORKS
+##THE WORLD OF THE MODEL
 
-Humans and bees are the two turtle species that are specified in the beginning of the model. There is a slider that specifies how often the crops are sprayed and the amount of toxicity in the plants. Toxicity translates to the bees during pollination - which is required in order for crops to grow - and there are thresholds of toxicity that increase the chance a bee will die. If the bee reaches a certain threshold(i.e. the fatal threshold), they will automatically die at the end of the current time step.
+The world for this model starts with a few assumptions. First, we assume that every patch in this world is made entirely of fertile soil that can have crops planted on it. Second, we assume that all of these crops require bees - by way of pollination - to grow. Thirdly, we assume the pesticides of this world do not affect humans. Finally, we assume that the humans who live in this world need to consume fully grown crops to keep an imaginary energy value above zero, or they will expire.
 
-Human reproduction has been disabled for this model in order to avoid the issue of overpopulation. This is just about bees and the effects of pesticides. 
+These assumptions leave us with a collection of facts. First, it tells us we have two turtle species that are defined: bees and humans. There is also a third type of turtle called patches that simulates the crops of the world. If bees do not pollinate these patches while passing over them, the crops for those patches will not grow. By extension, the humans will eventually starve because there is nothing for them to eat in order to gain their energy back from moving around the map.
 
-## HOW TO USE IT
+##HOW IT WORKS
+
+During each timestep, both humans and bees will take a single step in a random direction. This move costs them one energy, but they can still replenish that energy if they successfully eat or pollinate the patch they stop at. Humans can only eat patches if those patches are green, thereby turning them brown. Bees can only pollinate brown patches, thereby turning them yellow. If the energy of either bees or humans ever drops below zero, they die. If not, they have a chance to reproduce on every tick.
+
+The major caveat of this model that allows the representation of pesticides is the "death" function. Every timestep, bees are subjected to an additional condition not present for humans. If they have any amount of toxin on them from pollinating the plant, they must roll a death die in order to determine if they survive. Their chance of death is proportional to their sensitivity toward the poison. If luck favors them, they live and lose a small amount of the pesticide on them.
+
+Pesticide is sprayed at set intervals and with a set saturation. The saturation is randomized for each patch in order to account for uneven spraying patterns or just drift in general. The concentration applied to each patch will stick to that patch, but decay randomly in order to roughly simulate wash off and removal by other means. Whenever a bee pollinates a brown patch with pesticide on it, however, some of that pesticide will get on the bee. Depending on this bee's sensitivity, that amount will either be fatal or not quite enough to kill it. If the amount is insufficient, the bee loses some of the pesticide on it with every tick.
+
+If ever there arises a point where the pesticide is strong enough to kill off all bees, a message will denote that event. Humans will gradually die off without food until another message declares their extinction and stops the simulation.
+
+##HOW TO USE IT
+
+Each dial in the simulation window will affect something in the model.
+
+**Human settings:**
+Here you can change the initial number of humans at setup, how many energy units they gain from eating crops, and what percent chance they have to reproduce after every time step. These will all affect the survivability of humans in the model.
+
+**Bee settings:**
+Here you can change the initial number of bees at setup, how many energy units they gain from pollinating crops, what percent chance they have to reproduce after every time step and how sensitive they are to poison. A higher sensitivity will increase the lethality of the poison dramatically. 100% sensitivity at 1 unit of saturation will put bees on an extinction path.
+
+**Crop settings:**
+Here we find dials to affect how often crops are sprayed, how quickly they grow after pollination and how much pesticide is sprayed during every cycle. Increasing the frequency drastically affects bee mortality rate. Increased saturation will have a similar effect, but not as noticeable.
+
+**Other elements:**
+
+**Picture:**
+Bees are the black bugs.
+Humans are the blue people.
+Yellow patches are pollinated crops.
+Brown patches are unpollinated crops.
+Green patches are edible crops.
+
+**Graph:**
+The lines show the populations of bees, humans and crops over time.
+
+**Extra setting:**
+Show Toxicity will show what level of pesticide each bee is carrying, but, given how numerous the bees normally get, good luck seeing their labels.
+
+##HOW TO EXTEND
+
+This model is just a baseline, and can easily be extended based on other behaviors of real life poisons. For example, we could introduce a hive effect where each bee belongs to a hive, and poison getting into that hive kills all bees related to it. We could also create a sterility option where the poison doesn't outright kill the bees but does prevent them from reproducing. Obviously, to notice an effect with that, we would need to give bees a set life-span.
+
+##WHAT I LEARNED
+
+Primarily what I learned from this project is how difficult it is to accurately model pesticides. I originally tried to do a half-life model, only to discover that it was a massive rabbit hole that I didn't want to jump into. The biggest issue was what to do with new poison if it was sprayed just before the half-life on old poison occurred? I can't just take off half of that new poison when its half-life wouldn't even occur for quite a bit longer. Therefore, I could never figure out how to cleanly keep track of half-lives.
+
+At the same time, the random deduction method I used for patch-toxicity is probably not the most accurate for pesticides. You could essentially deduct 100% with the current setup, which isn't normal for any of the widely used pesticides. The 1 particle deduction on bees is probably not all that accurate either, though it depends on how inert the poison is in the system of the bee. Therefore, while I managed to get a rough estimate of the behavior of pesticides, my math is not completely in line with every aspect of reality.
+
+During this project, I also learned how to use NetLogo extensively. The random call as opposed to random-float got me mixed up quite a bit in the beginning and gave me anomalous behaviors during the first rough draft. Instead of subtracting percentages from certain values like I meant to, I was actually setting high values down to low numbers incredibly fast or doing comparisons that were not my intention. Bee-sensitivity had no effect with the initial setup I used, though anyone using the current model can see that that has been fixed.
+
+##SUMMARY
+
+I had a lot of fun making this model, and may come back to it later to introduce hives. Practical applications of computing on this level are always fascinating to me, so this project was probably the most fun I've had all semester long.
 @#$#@#$#@
 default
 true
